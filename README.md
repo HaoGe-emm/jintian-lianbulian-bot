@@ -77,7 +77,11 @@ Use a current MetaMask-enabled Chrome/Edge (HTTPS in production, loopback allowe
 
 Before any future write, independently agree the business operation, inspect calldata/target/amount/network/Gas, tick the checkbox, click MetaMask review, then decide in MetaMask. Each request/confirm/refund/withdraw is a real mainnet action and changes the demonstration state. Do not perform any of them as part of publishing or testing. Automated tests use a fake wallet only.
 
-## GitHub / Vercel release preparation — not published
+## Stage1 release status
+
+Public source: [HaoGe-emm/jintian-lianbulian-bot](https://github.com/HaoGe-emm/jintian-lianbulian-bot), branch `codex/preview`.
+
+The public-source release is complete. A usable Vercel Preview is **not yet available**: during Stage1 the platform assigned initial deployment requests to Production despite the explicit Preview requests. Those deployments were withdrawn; no active deployment is retained. Further deployment attempts are stopped until a Preview-only method can be verified. Do not treat a build success or a removed deployment URL as a passed public Demo acceptance test.
 
 Publish **only this independently initialized public repository**, under the user's approved Stage1 GitHub + Vercel Preview release. Do not publish the parent private project or its Git history, `work/`, journals, approval files, recovery tools, reports, private build manifests or deployment endpoints. `.gitignore`, `.vercelignore` and the release audit limit the release surface. The public repository has a fresh history independent of the private parent workspace.
 
