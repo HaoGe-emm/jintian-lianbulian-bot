@@ -1,0 +1,40 @@
+{
+  "description": "Historical independent BOT Chain mainnet verification; not a live balance snapshot",
+  "chainId": 677,
+  "checkedAt": "2026-10-21T04:01:21.530Z",
+  "token": "0x93DFA83eddBf8A87b124fC27c8B1266e9E5F1AcA",
+  "escrow": "0xC0E8d8Ef388E79A4FB23B6391F66DC34C856Ef43",
+  "receipt": {
+    "status": "success",
+    "hash": "0x5b6f2465314abeb73e7770d12bb8af992ee530ac74f2859a62d79d533a3fab51",
+    "blockNumber": 27425715,
+    "blockHash": "0xf45a2fb202c391be501d6c057c5a18c02886945b5a13924d1c4570122fdc80e8",
+    "nonce": "0x1",
+    "from": "0xb6bf6a936f529650992b71e2deb79e80fd3da71b",
+    "to": "0xc0e8d8ef388e79a4fb23b6391f66dc34c856ef43",
+    "method": "deposit",
+    "amount": "30",
+    "inputHash": "0x6a02e46835c8d558a32a05a1deff18fa7f16c3ff7c07831ffdbb5c64f53a3f7d",
+    "canonicalInclusionVerified": true
+  },
+  "deposited": {
+    "verified": true,
+    "emitter": "0xc0e8d8ef388e79a4fb23b6391f66dc34c856ef43",
+    "user": "0xb6bF6a936F529650992B71e2DeB79E80Fd3da71B",
+    "amount": "30",
+    "validUntil": "1824089712",
+    "logIndex": "0x1"
+  },
+  "transfer": {
+    "verified": true,
+    "emitter": "0x93dfa83eddbf8a87b124fc27c8b1266e9e5f1aca",
+    "from": "0xb6bF6a936F529650992B71e2DeB79E80Fd3da71B",
+    "to": "0xC0E8d8Ef388E79A4FB23B6391F66DC34C856Ef43",
+    "amount": "30",
+    "logIndex": "0x0"
+  },
+  "gasUsed": "126515",
+  "effectiveGasPriceWei": "20000000000",
+  "actualFeeBOT": "0.0025303",
+  "transactionUrl": "https://scan.botchain.ai/tx/0x5b6f2465314abeb73e7770d12bb8af992ee530ac74f2859a62d79d533a3fab51"
+}

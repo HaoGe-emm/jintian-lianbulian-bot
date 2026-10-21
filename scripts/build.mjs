@@ -1,0 +1,11 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { build } from 'esbuild';
+const root=fileURLToPath(new URL('../',import.meta.url));
+await fs.mkdir(path.join(root,'dist/assets'),{recursive:true});
+await build({entryPoints:[path.join(root,'src/main.mjs')],outfile:path.join(root,'dist/assets/app.js'),bundle:true,minify:true,format:'esm',target:['es2022'],legalComments:'eof'});
+await build({entryPoints:[path.join(root,'src/style.css')],outfile:path.join(root,'dist/assets/app.css'),bundle:true,minify:true});
+for(const file of ['index.html','icon.svg'])await fs.copyFile(path.join(root,file),path.join(root,'dist',file));
+for(const [from,to] of [['data/verified-deposit.json','evidence.json'],['NOTICE.md','NOTICE.txt'],['THIRD_PARTY_NOTICES.md','THIRD_PARTY_NOTICES.txt']])await fs.copyFile(path.join(root,from),path.join(root,'dist',to));
+console.log('Public Demo built in public-demo/dist. No deployment or transaction performed.');

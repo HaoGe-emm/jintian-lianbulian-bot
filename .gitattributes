@@ -1,0 +1,3 @@
+* text=auto eol=lf
+# Preserve exact Solidity source bytes used by the existing compiler build.
+contracts/*.sol -text
