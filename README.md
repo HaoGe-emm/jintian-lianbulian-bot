@@ -75,6 +75,10 @@ Both preview and cloud use the fixed public RPC through the read-only HTTP trans
 
 Use a current MetaMask-enabled Chrome/Edge (HTTPS in production, loopback allowed locally). Click **连接 MetaMask**, then explicitly switch/add BOT 677 if necessary. Connection alone never requests a signature. Member/merchant tabs only change the view, not wallet authority. Unknown addresses remain visitors. Only the designated wallet can preview its own role's actions.
 
+MetaMask discovery supports EIP-6963 and legacy injected providers. After connection, the header shows the role and account; member/merchant account changes select the corresponding panel. Account, network, connect and disconnect events invalidate existing transaction previews immediately, and older asynchronous responses cannot restore a previous role or preview. Identity remains visible on the wrong network while business actions stay disabled. Adding BOT 677 is followed by an explicit switch and a fresh network check.
+
+The public ledger always shows the designated demo member and merchant accounts; switching the connected wallet changes authority, not which accounts the public ledger describes. Role feedback is independent of ledger API availability. Each new Preview origin needs its own MetaMask site permission.
+
 Before any future write, independently agree the business operation, inspect calldata/target/amount/network/Gas, tick the checkbox, click MetaMask review, then decide in MetaMask. Each request/confirm/refund/withdraw is a real mainnet action and changes the demonstration state. Do not perform any of them as part of publishing or testing. Automated tests use a fake wallet only.
 
 ## Stage1 release status

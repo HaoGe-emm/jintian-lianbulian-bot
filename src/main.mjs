@@ -1,15 +1,18 @@
 import { formatEther, formatUnits } from 'ethers';
 import { CONFIG as C, eq } from './config.mjs';
 import { WalletActions, actionPlan } from './wallet.mjs';
+import { discoverMetaMask, WalletConnection } from './connection.mjs';
 const $=id=>document.getElementById(id);
 const text=(id,value)=>{$(id).textContent=value;};
 let state=null,account=null,wallet=null,actions=null,refreshing=false;
+let lastIdentity=null,actionWallet=null,lastContext=null;
+const findMetaMask=discoverMetaMask(window);
 function link(id,url,label){$(id).href=url;$(id).textContent=label;}
 link('deposit-link',`${C.explorer}/tx/${C.depositHash}`,`${C.depositHash} ↗`);
 link('token-link',`${C.explorer}/address/${C.token}`,`GymToken · ${C.token} ↗`);
 link('escrow-link',`${C.explorer}/address/${C.escrow}`,`GymEscrow · ${C.escrow} ↗`);
 text('member-address',C.member);text('merchant-address',C.merchant);
-function errorText(error){return error.code===4001?'你已拒绝钱包请求；没有继续执行后续交易。':String(error.shortMessage??error.message??error).slice(0,220);}
+function errorText(error){return error.code===4001?'你已拒绝钱包请求，请点击连接重试。':error.code===-32002?'MetaMask 已有待处理请求，请打开钱包完成授权。':String(error.shortMessage??error.message??error).slice(0,220);}
 function displayHistory(){
   $('history').replaceChildren();
   try {
@@ -25,7 +28,7 @@ function displayHistory(){
 function enableActions(){
   for(const b of document.querySelectorAll('[data-action]')){
     try {
-      if(!state || !actions || !navigator.locks) throw Error('只读模式');
+      if(!state || !actions || !account || !navigator.locks) throw Error('只读模式');
       if(Date.now()-Date.parse(state.readAt)>60000 || actions.busy || actions.locked()) throw Error('需要刷新或恢复');
       const plan=actionPlan(b.dataset.action,state,$('session').value);
       if(!eq(account,plan.from)) throw Error('角色不匹配');
@@ -57,44 +60,69 @@ async function refresh(){
   } finally{refreshing=false;$('refresh').disabled=false;enableActions();}
 }
 function reset(){actions?.invalidate();$('confirmation').checked=false;$('send').disabled=true;$('review').close();enableActions();}
-async function walletContext(){
-  account=(await wallet.request({method:'eth_accounts'}))[0]??null;
-  const correct=BigInt(await wallet.request({method:'eth_chainId'}))===677n;
-  text('wallet-status',account?`${eq(account,C.member)?'演示会员':eq(account,C.merchant)?'演示商家':'访客钱包（无本项目业务权限）'} · ${account} · ${correct?'BOT 677':'网络不匹配'}`:'钱包已断开 · 只读模式');
-  $('switch').hidden=correct;
-  if(!correct)account=null;
-  displayHistory();enableActions();
+function selectRole(role){
+  for(const r of ['member','merchant']){$(r+'-tab').setAttribute('aria-selected',String(r===role));$(r+'-panel').hidden=r!==role;}
 }
+const connection=new WalletConnection(current=>{
+  account=null;reset();
+  wallet=connection.provider;
+  if(wallet && wallet!==actionWallet){
+    actionWallet=wallet;
+    const selectedWallet=wallet;
+    // Storage access is deferred until an operation; a blocked store must not hide identity.
+    actions=new WalletActions({wallet,readRpc:(method,params=[])=>selectedWallet.request({method,params}),
+      storage:{getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value)}});
+  }
+  const role=eq(current.account,C.member)?'member':eq(current.account,C.merchant)?'merchant':null;
+  const label=role==='member'?'演示会员':role==='merchant'?'演示商家':'访客钱包';
+  const correct=current.chainId===677;
+  const message=current.error?errorText(current.error):current.checking?'正在同步 MetaMask 账户与网络…':
+    current.account?`${label}${role?'':'（无本项目业务权限）'} · ${current.account} · ${correct?'BOT 677':`网络 ${current.chainId}，请切换 BOT 677`}`:'钱包未连接 · 只读模式';
+  text('wallet-status',message);text('connection-summary',message);
+  text('connect',current.checking?'等待 MetaMask…':current.account?`${label} · ${current.account.slice(0,6)}…${current.account.slice(-4)}`:'连接 MetaMask');
+  $('switch').hidden=!current.account || correct || current.checking;
+  $('switch').disabled=current.checking;
+  if(!current.checking && !current.error){
+    if(current.account!==lastIdentity && role)selectRole(role);
+    lastIdentity=current.account;
+    account=correct?current.account:null;
+  }
+  text('action-status',current.error?message:current.checking?'正在确认钱包状态，业务操作暂不可用。':
+    !current.account?'连接对应角色的钱包后，才能预览业务交易。':!correct?'账户已识别；切换到 BOT Chain 677 后才能预览业务交易。':
+    !role?'该地址不是演示会员或商家，可继续查看公开账本。':navigator.locks?'身份已识别。可查看对应业务入口；余额与额度以公开账本为准。':'此浏览器不支持跨标签页交易锁，仅提供只读查看。');
+  displayHistory();enableActions();
+  if(!current.checking){
+    const context=current.account?`${current.account.toLowerCase()}:${current.chainId}`:null;
+    if(context!==lastContext){lastContext=context;if(account)void refresh();}
+  }
+});
 $('connect').onclick=async()=>{
+  if(connection.pending)return;
+  lastIdentity=null;
+  $('connect').disabled=true;text('connection-summary','请在 MetaMask 中确认连接…');
   try{
-    // Prefer MetaMask if multiple injected wallets are present. No request occurs on page load.
-    wallet=window.ethereum?.providers?.find(p=>p.isMetaMask)??window.ethereum;
-    if(!wallet?.isMetaMask)throw Error('未找到 MetaMask。请在装有 MetaMask 的浏览器中打开；也可继续只读参观。');
-    await wallet.request({method:'eth_requestAccounts'});
-    if(!actions){
-      actions=new WalletActions({wallet,readRpc:(method,params=[])=>wallet.request({method,params}),storage:localStorage});
-      wallet.on?.('accountsChanged',()=>{reset();walletContext().catch(e=>text('wallet-status',errorText(e)));});
-      wallet.on?.('chainChanged',()=>{reset();walletContext().catch(e=>text('wallet-status',errorText(e)));});
-    }
-    await walletContext();text('action-status',navigator.locks?'请先选业务操作并查看 Gas；每笔交易均需独立确认。':'此浏览器不支持跨标签页交易锁；为防止重复提交，仅提供只读查看。请使用当前版本 Chrome 或 Edge。');
-  }catch(error){text('wallet-status',errorText(error));}
+    await connection.connect(findMetaMask());
+  }catch(error){text('wallet-status',errorText(error));text('connection-summary',errorText(error));}
+  finally{$('connect').disabled=false;}
 };
 $('switch').onclick=async()=>{
   try{
-    reset();
+    account=null;reset();
+    if(!wallet)throw Error('请先连接 MetaMask');
     try{await wallet.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x2a5'}]});}
-    catch(e){if(e.code!==4902)throw e;await wallet.request({method:'wallet_addEthereumChain',params:[{chainId:'0x2a5',chainName:'BOT Chain Mainnet',nativeCurrency:{name:'BOT',symbol:'BOT',decimals:18},rpcUrls:[C.rpc],blockExplorerUrls:[C.explorer]}]});}
-    await walletContext();
-  }catch(error){text('wallet-status',errorText(error));}
+    catch(e){if(e.code!==4902)throw e;await wallet.request({method:'wallet_addEthereumChain',params:[{chainId:'0x2a5',chainName:'BOT Chain Mainnet',nativeCurrency:{name:'BOT',symbol:'BOT',decimals:18},rpcUrls:[C.rpc],blockExplorerUrls:[C.explorer]}]});
+      await wallet.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x2a5'}]});}
+    await connection.sync();
+  }catch(error){connection.clear(error);}
 };
-for(const role of ['member','merchant'])$(role+'-tab').onclick=()=>{
-  for(const r of ['member','merchant']){$(r+'-tab').setAttribute('aria-selected',String(r===role));$(r+'-panel').hidden=r!==role;}
-};
+for(const role of ['member','merchant'])$(role+'-tab').onclick=()=>selectRole(role);
 $('session').oninput=()=>{reset();enableActions();};
 for(const button of document.querySelectorAll('[data-action]'))button.onclick=async()=>{
   button.disabled=true;text('action-status','正在只读检查权限、账目、nonce 和 Gas…');
   try{
+    const revision=connection.revision,quotedActions=actions;
     const p=await actions.quote(button.dataset.action,$('session').value);
+    if(revision!==connection.revision || actions!==quotedActions){quotedActions.invalidate();throw Error('钱包状态已变化，请重新预览。');}
     text('preview-data',`网络：BOT Chain Mainnet (677)\n函数：${p.plan.method}(${p.plan.args.join(', ')})\nFrom：${p.plan.from}\nTo：${p.plan.to}\nValue：0 BOT\nNonce：${BigInt(p.nonce)}\nCalldata：${p.plan.data}\n预计 Gas：${p.gas}\nGas limit（含 20% 余量）：${p.limit}\nGas Price：${formatUnits(p.price,'gwei')} Gwei\n预计手续费：${p.fee} BOT\n本次费用上限：${p.cap} BOT`);
     $('confirmation').checked=false;$('send').disabled=true;$('review').showModal();text('action-status','已准备 Gas 预览。尚未请求钱包交易审核。');
   }catch(error){text('action-status',errorText(error));}finally{enableActions();}
